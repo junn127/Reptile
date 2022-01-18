@@ -1,13 +1,10 @@
 package com.novel;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
+import java.util.HashMap;
 import java.util.Scanner;
 
-import utils.SslUtils;
-import string.MySubString;
+import tools.utils.Html;
+import tools.strings.MySubString;
 
 public class QuanNovel {
     private String nameOfWeb = "全小说网";
@@ -21,382 +18,228 @@ public class QuanNovel {
 
     public void menu() {
         currentLink = homeLink;
-        System.out.println();
-        System.out.println("你当前访问的是: " + nameOfWeb);
+        HashMap<String, String> cata = new HashMap<String, String>();
+
+        System.out.println("\n你当前访问的是: " + nameOfWeb);
 //        System.out.println("主页链接为: " + homeLink);
         System.out.println("下载地址: " + pathOfDown);
-        System.out.println("请选择目录对应序号: ");
-        System.out.println("1.搜索小说");
-        System.out.println("2.玄幻小说");
-        System.out.println("3.言情小说");
-        System.out.println("4.网游小说\n");
+        System.out.println("目录获取中...");
+
+        String codeOfWeb = Html.htmlGet(homeLink, "gb2312");
+        String code = MySubString.cut(codeOfWeb, "首页", "div class");
+        code = MySubString.cut(code, "<a href", "</ul>");
+
+        String[] listOfResult = code.split("<a href");
+
+        System.out.println("获取完毕！\n\n目录序号如下: ");
+        System.out.println("1.搜索");
+        cata.put("1", "/s_");
+
+        for (int i = 0; i < listOfResult.length; i++) {
+            String title = MySubString.cut(listOfResult[i], "\">", "</a>");
+            String link = MySubString.cut(listOfResult[i], ".", ">");
+            link = MySubString.cut(link, "/", "\"").replaceAll("/", "");
+            cata.put(Integer.toString(i + 2), "/" + link + "/");
+            System.out.println((i + 2) + "." + title);
+        }
+
+        System.out.println("\n任意界面输入“menu”返回菜单: ");
+        System.out.println("\n请输入对应序号: ");
         Scanner sc = new Scanner(System.in);
-        switch (sc.nextInt()) {
-            case 1:
-                search();
-                break;
-            case 2:
-                xuanHuan();
-                break;
-            case 3:
-                xiuZhen();
-                break;
-            case 4:
-                wangYou();
-                break;
-            default:
-                System.out.println("请重新输入有效指令！");
+        while (true) {
+            String input = sc.next();
+            String value = cata.get(input);
+            if (input.equals("menu")) {
                 menu();
+                break;
+            } else if (value == null) {
+                System.out.println("请重新输入正确序号: ");
+            } else {
+                currentLink = homeLink + value;
+                if (input.equals("1")) {
+                    search();
+                } else {
+                    classify();
+                }
+            }
         }
     }
 
+    // 搜索小说方法
     private void search() {
-        StringBuffer codeOfWeb = new StringBuffer();
+        HashMap<String, String> orderOfBook = new HashMap<String, String>();
         Scanner sc = new Scanner(System.in);
-        BufferedReader br = null;
+
         System.out.println("请输入小说名字或作者: ");
-        currentLink = homeLink + "/s_" + sc.next();
+        currentLink += sc.next();
         System.out.println("搜索中...");
-        try {
-            URL url = new URL(currentLink);
-            SslUtils.ignoreSsl();
-            br = new BufferedReader(new InputStreamReader(url.openStream(), "gb2312"));
+        if (currentLink.endsWith("menu")) {
+            menu();
+            return;
+        }
 
-            String lineOfCode;
-            while ((lineOfCode = br.readLine()) != null) {
-                codeOfWeb.append(lineOfCode + "\n");
-            }
+        String codeOfWeb = Html.htmlGet(currentLink, "gb2312");
+        String code = MySubString.cut(codeOfWeb, "<div class=\"clear\"></div>",
+                "<div class=\"clear\"></div>");
+        code = MySubString.cut(code, "list_content", "", 2);
+        if (code == "") {
+            System.out.println("搜索结果为空，宁少写不错写");
+            search();
+            return;
+        }
 
-            String code = new MySubString(codeOfWeb.toString(),
-                    "<div class=\"clear\"></div>", "<div class=\"clear\"></div>").toString();
-            code = new MySubString(code, "list_content", "", 2).toString();
-            if (code == "") {
-                System.out.println("搜索结果为空，宁少写不错写");
-                search();
-                return;
-            }
+        String[] listOfResult = code.split("list_content");
 
-            String[] listOfResult = code.split("list_content");
+        System.out.println("搜索完毕，共搜索到" + listOfResult.length + "个结果\n");
+        System.out.println(String.format("%-5s", "序号") + String.format("%-16s", "书名") + String.format("%-16s", "作者")
+                + String.format("%-16s", "更新时间"));
+        System.out.println("----------------------------------------------------------------");
 
-            System.out.println("搜索完毕，共搜索到" + listOfResult.length + "个结果\n");
-            System.out.println(String.format("%-16s", "书名") + String.format("%-16s", "作者") +
-                    String.format("%-16s", "小说代码") + String.format("%-16s", "更新时间"));
-            System.out.println("----------------------------------------------------------------");
+        for (int i = 0; i < listOfResult.length; i++) {
+            String codeOfBook = MySubString.cut(listOfResult[i], "/", "/");
+            String nameOfBook = MySubString.cut(listOfResult[i], codeOfBook + "/\">", "</a>");
+            String timeOfBook = MySubString.cut(listOfResult[i], "\"cc5\">", "</li>");
+            String authorOfBook = MySubString.cut(listOfResult[i], "cc4\">", "</a></li>");
+            authorOfBook = MySubString.cut(authorOfBook, "\">", "", 1);
+            orderOfBook.put(Integer.toString(i + 1), "/" + codeOfBook + "/");
+            System.out.println(String.format("%-5s", i + 1) + String.format("%-16s", nameOfBook) + String.format("%-16s", authorOfBook)
+                    + String.format("%-16s", timeOfBook));
+        }
 
-            for (int i = 0; i < listOfResult.length; i++) {
-                String codeOfBook = new MySubString(listOfResult[i], "/", "/").toString();
-                String nameOfBook = new MySubString(listOfResult[i], codeOfBook + "/\">", "</a>").toString();
-                String timeOfBook = new MySubString(listOfResult[i], "\"cc5\">", "</li>").toString();
-                String authorOfBook = new MySubString(listOfResult[i], "cc4\">", "</a></li>").toString();
-                authorOfBook = new MySubString(authorOfBook, "\">", "", 1).toString();
-                System.out.println(String.format("%-16s", nameOfBook) + String.format("%-16s", authorOfBook) +
-                        String.format("%-16s", codeOfBook) + String.format("%-16s", timeOfBook));
-            }
-
-            System.out.println("\n请输入复制的小说代码: ");
-            while (true) {
-                String currentBook = sc.next();
-                if (code.indexOf(currentBook) != -1) {
-                    currentLink = homeLink + "/" + currentBook.trim() + "/";
-                    bookPage();
-                    break;
-                } else {
-                    System.out.println("小说代码有误！请重新输入: ");
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        System.out.println("\n请输入小说序号: ");
+        while (true) {
+            String input = sc.next();
+            String value = orderOfBook.get(input);
+            if (input.equals("menu")) {
+                menu();
+                break;
+            } else if (value == null) {
+                System.out.println("请重新输入正确序号: ");
+            } else {
+                currentLink = homeLink + value;
+                bookPage();
             }
         }
+
     }
 
-    private void xuanHuan() {
-        currentLink = homeLink + "/xuanhuan/";
-        BufferedReader br = null;
-        StringBuffer codeOfWeb = new StringBuffer();
+    // 小说分类方法
+    private void classify() {
+        HashMap<String, String> orderOfBook = new HashMap<String, String>();
         Scanner sc = new Scanner(System.in);
-        try {
-            URL url = new URL(currentLink);
-            SslUtils.ignoreSsl();
-            br = new BufferedReader(new InputStreamReader(url.openStream(), "gb2312"));
 
-            String lineOfCode;
-            while ((lineOfCode = br.readLine()) != null) {
-                codeOfWeb.append(lineOfCode + "\n");
-            }
-
-            String code = new MySubString(codeOfWeb.toString(),
-                    "<div class=\"clear\"></div>", "<div class=\"clear\"></div>").toString();
-            code = new MySubString(code, "list_content", "", 2).toString();
-            if (code == "") {
-                System.out.println("结果为空！");
-                return;
-            }
-
-            String[] listOfResult = code.split("list_content");
-
-            System.out.println("仅展示第一页，共" + listOfResult.length + "个结果\n");
-            System.out.println(String.format("%-16s", "书名") + String.format("%-16s", "作者") +
-                    String.format("%-16s", "小说代码") + String.format("%-16s", "更新时间"));
-            System.out.println("----------------------------------------------------------------");
-
-            for (int i = 0; i < listOfResult.length; i++) {
-                String codeOfBook = new MySubString(listOfResult[i], "/", "/").toString();
-                String nameOfBook = new MySubString(listOfResult[i], codeOfBook + "/\">", "</a>").toString();
-                String timeOfBook = new MySubString(listOfResult[i], "\"cc5\">", "</li>").toString();
-                String authorOfBook = new MySubString(listOfResult[i], "cc4\">", "</a></li>").toString();
-                authorOfBook = new MySubString(authorOfBook, "\">", "", 1).toString();
-                System.out.println(String.format("%-16s", nameOfBook) + String.format("%-16s", authorOfBook) +
-                        String.format("%-16s", codeOfBook) + String.format("%-16s", timeOfBook));
-            }
-
-            System.out.println("\n请输入复制的小说代码: ");
-            while (true) {
-                String currentBook = sc.next();
-                if (code.indexOf(currentBook) != -1) {
-                    currentLink = homeLink + "/" + currentBook.trim() + "/";
-                    bookPage();
-                    break;
-                } else {
-                    System.out.println("小说代码有误！请重新输入: ");
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+        String codeOfWeb = Html.htmlGet(currentLink, "gb2312");
+        String code = MySubString.cut(codeOfWeb,
+                "<div class=\"clear\"></div>", "<div class=\"clear\"></div>");
+        code = MySubString.cut(code, "list_content", "", 2);
+        if (code == "") {
+            System.out.println("结果为空！");
+            return;
         }
-    }
 
-    private void xiuZhen() {
-        currentLink = homeLink + "/yanqing/";
-        BufferedReader br = null;
-        StringBuffer codeOfWeb = new StringBuffer();
-        Scanner sc = new Scanner(System.in);
-        try {
-            URL url = new URL(currentLink);
-            SslUtils.ignoreSsl();
-            br = new BufferedReader(new InputStreamReader(url.openStream(), "gb2312"));
+        String[] listOfResult = code.split("list_content");
 
-            String lineOfCode;
-            while ((lineOfCode = br.readLine()) != null) {
-                codeOfWeb.append(lineOfCode + "\n");
-            }
+        System.out.println("仅展示第一页，共" + listOfResult.length + "个结果\n");
+        System.out.println(String.format("%-5s", "序号") + String.format("%-16s", "书名") + String.format("%-16s", "作者")
+                + String.format("%-16s", "更新时间"));
+        System.out.println("----------------------------------------------------------------");
 
-            String code = new MySubString(codeOfWeb.toString(),
-                    "<div class=\"clear\"></div>", "<div class=\"clear\"></div>").toString();
-            code = new MySubString(code, "list_content", "", 2).toString();
-            if (code == "") {
-                System.out.println("结果为空！");
-                return;
-            }
-
-            String[] listOfResult = code.split("list_content");
-
-            System.out.println("仅展示第一页，共" + listOfResult.length + "个结果\n");
-            System.out.println(String.format("%-16s", "书名") + String.format("%-16s", "作者") +
-                    String.format("%-16s", "小说代码") + String.format("%-16s", "更新时间"));
-            System.out.println("----------------------------------------------------------------");
-
-            for (int i = 0; i < listOfResult.length; i++) {
-                String codeOfBook = new MySubString(listOfResult[i], "/", "/").toString();
-                String nameOfBook = new MySubString(listOfResult[i], codeOfBook + "/\">", "</a>").toString();
-                String timeOfBook = new MySubString(listOfResult[i], "\"cc5\">", "</li>").toString();
-                String authorOfBook = new MySubString(listOfResult[i], "cc4\">", "</a></li>").toString();
-                authorOfBook = new MySubString(authorOfBook, "\">", "", 1).toString();
-                System.out.println(String.format("%-16s", nameOfBook) + String.format("%-16s", authorOfBook) +
-                        String.format("%-16s", codeOfBook) + String.format("%-16s", timeOfBook));
-            }
-
-            System.out.println("\n请输入复制的小说代码: ");
-            while (true) {
-                String currentBook = sc.next();
-                if (code.indexOf(currentBook) != -1) {
-                    currentLink = homeLink + "/" + currentBook.trim() + "/";
-                    bookPage();
-                    break;
-                } else {
-                    System.out.println("小说代码有误！请重新输入: ");
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+        for (int i = 0; i < listOfResult.length; i++) {
+            String codeOfBook = MySubString.cut(listOfResult[i], "/", "/");
+            String nameOfBook = MySubString.cut(listOfResult[i], codeOfBook + "/\">", "</a>");
+            String timeOfBook = MySubString.cut(listOfResult[i], "\"cc5\">", "</li>");
+            String authorOfBook = MySubString.cut(listOfResult[i], "cc4\">", "</a></li>");
+            authorOfBook = MySubString.cut(authorOfBook, "\">", "", 1);
+            orderOfBook.put(Integer.toString(i + 1), "/" + codeOfBook + "/");
+            System.out.println(String.format("%-5s", i + 1) + String.format("%-16s", nameOfBook) + String.format("%-16s", authorOfBook)
+                    + String.format("%-16s", timeOfBook));
         }
-    }
 
-    private void wangYou() {
-        currentLink = homeLink + "/youxi/";
-        BufferedReader br = null;
-        StringBuffer codeOfWeb = new StringBuffer();
-        Scanner sc = new Scanner(System.in);
-        try {
-            URL url = new URL(currentLink);
-            SslUtils.ignoreSsl();
-            br = new BufferedReader(new InputStreamReader(url.openStream(), "gb2312"));
-
-            String lineOfCode;
-            while ((lineOfCode = br.readLine()) != null) {
-                codeOfWeb.append(lineOfCode + "\n");
-            }
-
-            String code = new MySubString(codeOfWeb.toString(),
-                    "<div class=\"clear\"></div>", "<div class=\"clear\"></div>").toString();
-            code = new MySubString(code, "list_content", "", 2).toString();
-            if (code == "") {
-                System.out.println("结果为空！");
-                return;
-            }
-
-            String[] listOfResult = code.split("list_content");
-
-            System.out.println("仅展示第一页，共" + listOfResult.length + "个结果\n");
-            System.out.println(String.format("%-16s", "书名") + String.format("%-16s", "作者") +
-                    String.format("%-16s", "小说代码") + String.format("%-16s", "更新时间"));
-            System.out.println("----------------------------------------------------------------");
-
-            for (int i = 0; i < listOfResult.length; i++) {
-                String codeOfBook = new MySubString(listOfResult[i], "/", "/").toString();
-                String nameOfBook = new MySubString(listOfResult[i], codeOfBook + "/\">", "</a>").toString();
-                String timeOfBook = new MySubString(listOfResult[i], "\"cc5\">", "</li>").toString();
-                String authorOfBook = new MySubString(listOfResult[i], "cc4\">", "</a></li>").toString();
-                authorOfBook = new MySubString(authorOfBook, "\">", "", 1).toString();
-                System.out.println(String.format("%-16s", nameOfBook) + String.format("%-16s", authorOfBook) +
-                        String.format("%-16s", codeOfBook) + String.format("%-16s", timeOfBook));
-            }
-
-            System.out.println("\n请输入复制的小说代码: ");
-            while (true) {
-                String currentBook = sc.next();
-                if (code.indexOf(currentBook) != -1) {
-                    currentLink = homeLink + "/" + currentBook.trim() + "/";
-                    bookPage();
-                    break;
-                } else {
-                    System.out.println("小说代码有误！请重新输入: ");
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        System.out.println("\n请输入小说序号: ");
+        while (true) {
+            String input = sc.next();
+            String value = orderOfBook.get(input);
+            if (input.equals("menu")) {
+                menu();
+                break;
+            } else if (value == null) {
+                System.out.println("请重新输入正确序号: ");
+            } else {
+                currentLink = homeLink + value;
+                bookPage();
             }
         }
 
     }
 
+    // 小说主页方法
     private void bookPage() {
-        BufferedReader br = null;
-        StringBuffer codeOfWeb = new StringBuffer();
+
         Scanner sc = new Scanner(System.in);
-        try {
-            URL url = new URL(currentLink);
-            SslUtils.ignoreSsl();
-            br = new BufferedReader(new InputStreamReader(url.openStream(), "gb2312"));
+        String codeOfWeb = Html.htmlGet(currentLink, "gb2312");
 
-            String lineOfCode;
-            while ((lineOfCode = br.readLine()) != null) {
-                codeOfWeb.append(lineOfCode + "\n");
-            }
+        //小说主页信息截取
+        String nameOfBook = MySubString.cut(codeOfWeb, "<div class=\"text t_c\">", "</div>");
+        nameOfBook = MySubString.cut(nameOfBook, "\">", "</a>");
+        String aboutOfBook = MySubString.cut(codeOfWeb, "<div class=\"text\">", "<div class=\"clear\"></div>");
+        String typeOfBook = MySubString.cut(aboutOfBook, "类型", "</div>");
+        typeOfBook = MySubString.cut(typeOfBook, "\">", "</font>");
+        String authorOfBook = MySubString.cut(aboutOfBook, "作 者", "</div>");
+        authorOfBook = MySubString.cut(authorOfBook, "\">", "</a>");
+        String newestOfChapter = MySubString.cut(aboutOfBook, "title=\"", "\">");
+        String introOfBook = MySubString.cut(codeOfWeb, "<div class=\"clear\"></div>", "<div class=\"clear\"></div>");
+        introOfBook = MySubString.cut(introOfBook, "<div class=\"desc\">", "<br/>");
+        introOfBook = introOfBook.trim();
 
-            //小说主页信息截取
-            String nameOfBook = new MySubString(codeOfWeb.toString(), "<div class=\"text t_c\">", "</div>").toString();
-            nameOfBook = new MySubString(nameOfBook, "\">", "</a>").toString();
-            String aboutOfBook = new MySubString(codeOfWeb.toString(), "<div class=\"text\">", "<div class=\"clear\"></div>").toString();
-            String typeOfBook = new MySubString(aboutOfBook, "类型", "</div>").toString();
-            typeOfBook = new MySubString(typeOfBook, "\">", "</font>").toString();
-            String authorOfBook = new MySubString(aboutOfBook, "作 者", "</div>").toString();
-            authorOfBook = new MySubString(authorOfBook, "\">", "</a>").toString();
-            String newestOfChapter = new MySubString(aboutOfBook, "title=\"", "\">").toString();
-            String introOfBook = new MySubString(codeOfWeb.toString(), "<div class=\"clear\"></div>", "<div class=\"clear\"></div>").toString();
-            introOfBook = new MySubString(introOfBook, "<div class=\"desc\">", "<br/>").toString();
-            introOfBook = introOfBook.trim();
+        //打印基本信息
+        System.out.println("书名: " + nameOfBook);
+        System.out.println("类型: " + typeOfBook);
+        System.out.println("作者: " + authorOfBook);
+        System.out.println("最新章节: " + newestOfChapter);
+        System.out.println(introOfBook);
 
-            //打印基本信息
-            System.out.println("书名: " + nameOfBook);
-            System.out.println("类型: " + typeOfBook);
-            System.out.println("作者: " + authorOfBook);
-            System.out.println("最新章节: " + newestOfChapter);
-            System.out.println(introOfBook);
+        String code = MySubString.cut(codeOfWeb.toString(),
+                "<div class=\"chapter\">", "<div class=\"clear\"></div>");
+        if (code == "") {
+            System.out.println("结果为空！");
+            return;
+        }
 
-            String code = new MySubString(codeOfWeb.toString(),
-                    "<div class=\"chapter\">", "<div class=\"clear\"></div>").toString();
-            if (code == "") {
-                System.out.println("结果为空！");
-                return;
-            }
+        String[] listOfResult = code.split("chapter");
 
-            String[] listOfResult = code.split("chapter");
-
-            System.out.println("\n请输入需要下载的章数（大于小说总章数则全部下载）: ");
-            int numOfDown;
-            while (true) {
-                numOfDown = sc.nextInt();
-                if (numOfDown <= 0) {
-                    System.out.println("输入不正确！请重新输入: ");
-                } else {
-                    System.out.println("开始下载...");
-                    break;
-                }
-            }
-            System.out.println("------------------------------------------------\n");
-
-            for (int i = 0; i < listOfResult.length && i < numOfDown; i++) {
-                String linkOfDown = homeLink + new MySubString(listOfResult[i], "href=\"", "\"").toString();
-                String nameOfDown = new MySubString(listOfResult[i], "title=\"", "\"").toString();
-//                nameOfDown = nameOfDown.replaceAll(" ", "");
-                new Thread(new DownNovel(pathOfDown + "\\" + nameOfBook, nameOfDown, linkOfDown)).start();
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        System.out.println("总章节数: " + listOfResult.length);
+        System.out.println("\n请输入需要下载的章数: ");
+        int numOfDown;
+        while (true) {
+            numOfDown = sc.nextInt();
+            if (numOfDown > 0 && numOfDown <= listOfResult.length) {
+                numOfDown = numOfDown < listOfResult.length ? numOfDown : listOfResult.length;
+                System.out.println("开始下载...");
+                break;
+            } else {
+                System.out.println("输入不正确！请重新输入: ");
             }
         }
+        System.out.println("------------------------------------------------\n");
+
+        for (int i = 0; i < numOfDown; i++) {
+            String linkOfDown = homeLink + MySubString.cut(listOfResult[i], "href=\"", "\"");
+            String nameOfDown = MySubString.cut(listOfResult[i], "title=\"", "\"");
+            String keyOfName = MySubString.cut(nameOfDown, "第", "章");
+            if (keyOfName.equals("")) {
+                nameOfDown = "第" + (i + 1) + "章 " + nameOfDown;
+            } else {
+                nameOfDown = nameOfDown.replaceAll("第" + keyOfName + "章", "第" + (i + 1) + "章");
+            }
+            new Thread(new DownNovel(pathOfDown + "\\" + nameOfBook, nameOfDown, linkOfDown, i)).start();
+        }
+
+        while (true) {
+            if (sc.next().equals("menu")) {
+                menu();
+                break;
+            }
+        }
+
     }
 }
